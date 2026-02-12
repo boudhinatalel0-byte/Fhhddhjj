@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameTrust V5</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+--primary:#00f5ff;
+--bg:#0f0f1a;
+--card:#1c1c2e;
+--success:#00ff88;
+}
+
+body{
+margin:0;
+font-family:'Cairo',sans-serif;
+background:var(--bg);
+color:white;
+}
+
+header{
+background:#111827;
+padding:15px 30px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+h1{color:var(--primary)}
+
+button{
+background:var(--primary);
+border:none;
+padding:8px 15px;
+border-radius:8px;
+cursor:pointer;
+font-weight:bold;
+}
+
+button:hover{opacity:0.8}
+
+.container{padding:25px}
+
+.hidden{display:none}
+
+.cards{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:20px;
+}
+
+.card{
+background:var(--card);
+padding:15px;
+border-radius:15px;
+transition:.3s;
+}
+
+.card:hover{
+transform:translateY(-5px);
+box-shadow:0 0 20px var(--primary);
+}
+
+.card img{
+width:100%;
+border-radius:10px;
+height:150px;
+object-fit:cover;
+}
+
+input{
+width:100%;
+padding:10px;
+margin:8px 0;
+border-radius:8px;
+border:none;
+}
+
+.price{color:var(--success);font-weight:bold}
+
+.badge{
+background:var(--success);
+padding:4px 8px;
+border-radius:6px;
+font-size:12px;
+color:black;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>🎮 GameTrust V5</h1>
+<div id="nav"></div>
+</header>
+
+<div class="container">
+
+<!-- AUTH -->
+<div id="authPage">
+<h2>تسجيل / دخول</h2>
+<input id="authUser" placeholder="اسم المستخدم">
+<input id="authPass" type="password" placeholder="كلمة السر">
+<button onclick="register()">تسجيل</button>
+<button onclick="login()">دخول</button>
+</div>
+
+<!-- HOME -->
+<div id="homePage" class="hidden">
+<button onclick="showAdd()">+ بيع حساب</button>
+<button onclick="logout()">خروج</button>
+<input id="search" placeholder="بحث..." onkeyup="renderAccounts()">
+<div class="cards" id="accounts"></div>
+</div>
+
+<!-- ADD -->
+<div id="addPage" class="hidden">
+<h2>إضافة حساب</h2>
+<input id="game" placeholder="اسم اللعبة">
+<input id="price" type="number" placeholder="السعر">
+<input id="image" placeholder="رابط صورة">
+<input id="desc" placeholder="وصف">
+<button onclick="addAccount()">نشر</button>
+<button onclick="goHome()">رجوع</button>
+</div>
+
+</div>
+
+<script>
+
+/* =====================
+   DATABASE (Local)
+===================== */
+
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let accounts = JSON.parse(localStorage.getItem("accounts")) || [];
+let currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+function save(){
+localStorage.setItem("users",JSON.stringify(users));
+localStorage.setItem("accounts",JSON.stringify(accounts));
+localStorage.setItem("currentUser",JSON.stringify(currentUser));
+}
+
+/* =====================
+   AUTH SYSTEM
+===================== */
+
+function register(){
+let u=authUser.value;
+let p=authPass.value;
+if(!u||!p)return alert("أكمل البيانات");
+
+if(users.find(x=>x.username===u))
+return alert("المستخدم موجود");
+
+users.push({username:u,password:p});
+save();
+alert("تم التسجيل");
+}
+
+function login(){
+let u=authUser.value;
+let p=authPass.value;
+
+let user=users.find(x=>x.username===u && x.password===p);
+if(!user)return alert("بيانات خاطئة");
+
+currentUser=user;
+save();
+startApp();
+}
+
+function logout(){
+currentUser=null;
+save();
+location.reload();
+}
+
+if(currentUser)startApp();
+
+function startApp(){
+authPage.classList.add("hidden");
+homePage.classList.remove("hidden");
+nav.innerHTML="👤 "+currentUser.username;
+renderAccounts();
+}
+
+/* =====================
+   ACCOUNT SYSTEM
+===================== */
+
+function showAdd(){
+homePage.classList.add("hidden");
+addPage.classList.remove("hidden");
+}
+
+function goHome(){
+addPage.classList.add("hidden");
+homePage.classList.remove("hidden");
+}
+
+function addAccount(){
+let game=game.value;
+let price=price.value;
+let image=image.value;
+let desc=desc.value;
+
+if(!game||!price||!image)return alert("أكمل البيانات");
+
+accounts.push({
+id:Date.now(),
+game,
+price,
+image,
+desc,
+seller:currentUser.username,
+rating:0,
+votes:0
+});
+
+save();
+goHome();
+renderAccounts();
+}
+
+function rate(id){
+let acc=accounts.find(a=>a.id===id);
+acc.votes++;
+save();
+renderAccounts();
+}
+
+function renderAccounts(){
+accountsDiv=accounts;
+let s=search.value?.toLowerCase()||"";
+accountsDiv=document.getElementById("accounts");
+accountsDiv.innerHTML="";
+
+accounts
+.filter(a=>a.game.toLowerCase().includes(s))
+.forEach(a=>{
+let commission=(a.price*0.05).toFixed(2);
+accountsDiv.innerHTML+=`
+<div class="card">
+<img src="${a.image}">
+<h3>${a.game}</h3>
+<p>${a.desc||""}</p>
+<p>البائع: ${a.seller}</p>
+<p class="price">$${a.price}</p>
+<p>عمولة الموقع 5%: $${commission}</p>
+<p>⭐ ${a.votes}</p>
+<button onclick="rate(${a.id})">تقييم</button>
+${a.seller===currentUser.username?
+`<button onclick="deleteAcc(${a.id})">حذف</button>`:""}
+<button onclick="alert('الدفع سيضاف في V6')">شراء</button>
+</div>`;
+});
+}
+
+function deleteAcc(id){
+accounts=accounts.filter(a=>a.id!==id);
+save();
+renderAccounts();
+}
+
+</script>
+
+</body>
+</html>
